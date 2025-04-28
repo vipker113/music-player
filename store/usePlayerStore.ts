@@ -1,14 +1,6 @@
 import { create } from "zustand";
 import { Audio } from "expo-av";
-import { fetchAllChillhopTracks } from "@/apis/fetchChillhopYTB";
-
-export type Track = {
-  title: string;
-  url: string;
-  artwork?: string;
-  artist?: string;
-  playlist?: string[];
-};
+import { fetchAllChillhopTracks, Track } from "@/apis/fetchChillhopYTB";
 
 type RepeatMode = "off" | "repeat-one" | "repeat-all" | "shuffle";
 
@@ -21,6 +13,7 @@ type PlayerState = {
   repeatMode: RepeatMode;
   progress: number;
   duration: number;
+  volume: number;
   fetchTracks: () => Promise<void>;
   playTrack: (track: Track) => Promise<void>;
   playNext: () => Promise<void>;
@@ -29,6 +22,7 @@ type PlayerState = {
   toggleRepeatMode: () => void;
   cleanup: () => Promise<void>;
   seekTo: (position: number) => Promise<void>;
+  setVolume: (volume: number) => Promise<void>;
 };
 
 export const usePlayerStore = create<PlayerState>((set, get) => ({
@@ -40,20 +34,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   repeatMode: "off",
   progress: 0,
   duration: 1,
+  volume: 1,
   fetchTracks: async () => {
     try {
       set({ isLoading: true });
 
-      // Lấy tất cả các bài hát từ Chillhop
       const chillhopTracks = await fetchAllChillhopTracks();
 
-      // Chuyển đổi sang định dạng Track của ứng dụng
       const tracks: Track[] = chillhopTracks.map((track) => ({
+        id: track.id,
         title: track.title,
         artist: track.artist,
         artwork: track.artwork,
         url: track.url,
-        playlist: ["Chillhop", "Lofi"], // Gán playlist mặc định
+        playlist: track.playlist,
+        favorite: track.favorite,
+        rating: track.rating,
       }));
 
       set({ tracks, isLoading: false });
@@ -119,13 +115,19 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       const otherTracks = tracks.filter((t) => t.url !== currentTrack.url);
       nextTrack = otherTracks[Math.floor(Math.random() * otherTracks.length)];
     } else {
-      const nextIndex =
-        currentIndex === tracks.length - 1
-          ? repeatMode === "repeat-all"
-            ? 0
-            : -1
-          : currentIndex + 1;
-      nextTrack = tracks[nextIndex] || null;
+      if (repeatMode === "repeat-one") {
+        await get().seekTo(0);
+        await get().togglePlayPause();
+      } else {
+        const nextIndex =
+          currentIndex === tracks.length - 1
+            ? repeatMode === "repeat-all"
+              ? 0
+              : -1
+            : currentIndex + 1;
+
+        nextTrack = tracks[nextIndex] || null;
+      }
     }
 
     if (nextTrack) {
@@ -173,7 +175,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (sound) {
       await sound.unloadAsync();
     }
-    set({ sound: null, isPlaying: false });
+    set({ sound: null, isPlaying: false, currentTrack: null, progress: 0 });
   },
   seekTo: async (positionMillis) => {
     const { sound } = get();
@@ -185,5 +187,16 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
         console.error("Error seeking:", error);
       }
     }
+  },
+  setVolume: async (volume) => {
+    const { sound } = get();
+    if (sound) {
+      try {
+        await sound.setVolumeAsync(volume);
+      } catch (error) {
+        console.error("Error setting volume:", error);
+      }
+    }
+    set({ volume });
   },
 }));

@@ -1,10 +1,12 @@
-import React, { useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Text,
   TouchableOpacity,
   View,
   ActivityIndicator,
   Platform,
+  Pressable,
 } from "react-native";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { unknownTrackImageUri } from "@/constants/images";
@@ -19,30 +21,130 @@ import Slider from "@react-native-community/slider";
 import { formatTime } from "@/libs/helper";
 
 export const FloatingPlayer = () => {
-  const currentTrack = usePlayerStore((state) => state.currentTrack);
-  const isPlaying = usePlayerStore((state) => state.isPlaying);
-  const isLoading = usePlayerStore((state) => state.isLoading);
-  const togglePlayPause = usePlayerStore((state) => state.togglePlayPause);
-  const cleanup = usePlayerStore((state) => state.cleanup);
+  const {
+    currentTrack,
+    isPlaying,
+    isLoading,
+    repeatMode,
+    progress,
+    duration,
+    volume,
+    togglePlayPause,
+    toggleRepeatMode,
+    cleanup,
+    seekTo,
+    playPrev,
+    playNext,
+    setVolume,
+  } = usePlayerStore();
 
-  const repeatMode = usePlayerStore((state) => state.repeatMode);
-  const toggleRepeatMode = usePlayerStore((state) => state.toggleRepeatMode);
-
-  const progress = usePlayerStore((state) => state.progress);
-  const duration = usePlayerStore((state) => state.duration);
-  const seekTo = usePlayerStore((state) => state.seekTo);
-
-  const playNext = usePlayerStore((state) => state.playNext);
-  const playPrev = usePlayerStore((state) => state.playPrev);
+  const [tempVolume, setTempVolume] = useState(volume);
+  const [isVolumeVisible, setIsVolumeVisible] = useState(false);
+  const volumeOpacity = useRef(new Animated.Value(0)).current;
+  const volumeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const insets = useSafeAreaInsets();
   const tabBarHeight = Platform.OS === "ios" ? 49 + insets.bottom : 56;
 
+  const [expanded, setExpanded] = useState(true);
+  const animatedHeight = useRef(new Animated.Value(1)).current;
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetAutoCollapse = useCallback(() => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      collapse();
+    }, 12000);
+  }, []);
+
+  const toggleExpand = () => {
+    if (expanded) {
+      collapse();
+    } else {
+      expand();
+    }
+    resetAutoCollapse();
+  };
+
+  const handleClose = useCallback(async () => {
+    const { cleanup } = usePlayerStore.getState();
+    await cleanup();
+  }, []);
+
+  const showVolumeSlider = () => {
+    setIsVolumeVisible(true);
+
+    if (volumeTimeoutRef.current) {
+      clearTimeout(volumeTimeoutRef.current);
+    }
+
+    Animated.timing(volumeOpacity, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
+
+    volumeTimeoutRef.current = setTimeout(() => {
+      hideVolumeSlider();
+    }, 3000);
+  };
+
+  const hideVolumeSlider = () => {
+    Animated.timing(volumeOpacity, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsVolumeVisible(false);
+    });
+  };
+
+  const expand = () => {
+    setExpanded(true);
+    setIsVolumeVisible(false);
+    Animated.timing(animatedHeight, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handleVolumeChange = (val: number | number[]) => {
+    const newVolume = Array.isArray(val) ? val[0] : val;
+    setTempVolume(newVolume);
+    setVolume(newVolume);
+    if (volumeTimeoutRef.current) {
+      clearTimeout(volumeTimeoutRef.current);
+    }
+    volumeTimeoutRef.current = setTimeout(() => {
+      hideVolumeSlider();
+    }, 5000);
+  };
+
+  const collapse = () => {
+    setExpanded(false);
+    Animated.timing(animatedHeight, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
   useEffect(() => {
+    resetAutoCollapse();
     return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
       cleanup();
     };
   }, [cleanup]);
+
+  useEffect(() => {
+    expand();
+  }, [currentTrack]);
 
   if (!currentTrack) return null;
 
@@ -68,16 +170,22 @@ export const FloatingPlayer = () => {
   };
 
   return (
-    <View
+    <Pressable
       style={[
-        tw`absolute mx-4 left-0 right-0 bg-gray-800 p-2 items-center shadow-lg rounded-lg`,
+        tw`absolute mx-4 left-0 right-0 bg-slate-700 p-2 items-center shadow-lg rounded-lg z-10`,
         {
+          overflow: isVolumeVisible ? "visible" : "hidden",
           bottom: insets.bottom + tabBarHeight,
           left: 0,
           right: 0,
           paddingBottom: insets.bottom + 16,
         },
       ]}
+      onPress={() => {
+        if (!expanded) {
+          expand();
+        }
+      }}
     >
       <View style={tw`flex-row items-center justify-between w-full`}>
         <Image
@@ -97,52 +205,124 @@ export const FloatingPlayer = () => {
             </Text>
           )}
         </View>
-        <TouchableOpacity onPress={toggleRepeatMode} style={tw`p-3`}>
+
+        <TouchableOpacity onPress={toggleRepeatMode} style={tw`p-2`}>
           {renderButtonRepeatMode(repeatMode)}
         </TouchableOpacity>
-      </View>
-      <View style={tw`w-full mt-2`}>
-        <Slider
-          value={progress}
-          minimumValue={0}
-          maximumValue={duration || 1}
-          onSlidingComplete={seekTo}
-          minimumTrackTintColor={colors.primary}
-          maximumTrackTintColor="#999"
-          thumbTintColor={colors.primary}
-          style={{ height: 30 }}
-        />
-        <View style={tw`flex-row justify-between px-2`}>
-          <Text style={tw`text-xs text-gray-400`}>{formatTime(progress)}</Text>
-          <Text style={tw`text-xs text-gray-400`}>{formatTime(duration)}</Text>
-        </View>
-      </View>
-      <View
-        style={tw`flex-row items-center justify-between w-[60%] self-center mt-2`}
-      >
-        <TouchableOpacity onPress={playPrev} style={tw`p-2`}>
-          <MaterialIcons name="skip-previous" size={24} color="white" />
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={togglePlayPause}
-          disabled={isLoading}
-          style={tw`p-2`}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <Ionicons
-              name={isPlaying ? "pause" : "play"}
-              size={24}
-              color={colors.primary}
-            />
-          )}
+        <TouchableOpacity onPress={toggleExpand} style={tw`p-2`}>
+          <Ionicons
+            name={expanded ? "chevron-down" : "chevron-up"}
+            size={24}
+            color="#fff"
+          />
         </TouchableOpacity>
-        <TouchableOpacity onPress={playNext} style={tw`p-2`}>
-          <MaterialIcons name="skip-next" size={24} color="white" />
+        <TouchableOpacity onPress={handleClose} style={tw`p-2`}>
+          <Ionicons name="close" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
-    </View>
+
+      <Animated.View
+        style={{
+          position: "relative",
+          overflow: expanded ? "visible" : "hidden",
+          zIndex: 10,
+          width: "100%",
+          height: animatedHeight.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, 100],
+          }),
+        }}
+      >
+        <View style={tw`w-full mt-2`}>
+          <Slider
+            value={progress}
+            minimumValue={0}
+            maximumValue={duration || 1}
+            onSlidingComplete={seekTo}
+            minimumTrackTintColor={colors.primary}
+            maximumTrackTintColor="#999"
+            thumbTintColor={colors.primary}
+            style={{ height: 30 }}
+          />
+          <View style={tw`flex-row justify-between px-2`}>
+            <Text style={tw`text-xs text-gray-400`}>
+              {formatTime(progress)}
+            </Text>
+            <Text style={tw`text-xs text-gray-400`}>
+              {formatTime(duration)}
+            </Text>
+          </View>
+        </View>
+
+        <View style={tw`flex-row items-center justify-between gap-2 mt-2`}>
+          <View style={tw`flex-row flex-1 items-center justify-between`}>
+            <TouchableOpacity onPress={playPrev} style={tw`p-2`}>
+              <MaterialIcons name="skip-previous" size={24} color="white" />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={togglePlayPause}
+              disabled={isLoading}
+              style={tw`p-2`}
+            >
+              {isLoading ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons
+                  name={isPlaying ? "pause" : "play"}
+                  size={24}
+                  color={colors.primary}
+                />
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={playNext} style={tw`p-2`}>
+              <MaterialIcons name="skip-next" size={24} color="white" />
+            </TouchableOpacity>
+          </View>
+          <View
+            style={tw`relative flex-row min-w-[80px] justify-center items-center ml-2`}
+          >
+            <TouchableOpacity style={tw`p-2`} onPress={showVolumeSlider}>
+              <Ionicons
+                name={
+                  tempVolume === 0
+                    ? "volume-mute"
+                    : tempVolume < 0.55
+                    ? "volume-low"
+                    : "volume-high"
+                }
+                size={20}
+                color="white"
+              />
+            </TouchableOpacity>
+            {isVolumeVisible && (
+              <Animated.View
+                style={[
+                  tw`absolute bg-white z-10 w-[180px] h-[40px] rounded-lg py-2 px-1`,
+                  {
+                    opacity: volumeOpacity,
+                    top: -120,
+                    transform: [{ rotate: "-90deg" }],
+                  },
+                ]}
+              >
+                <Slider
+                  value={tempVolume}
+                  onValueChange={handleVolumeChange}
+                  minimumValue={0}
+                  maximumValue={1}
+                  step={0.01}
+                  thumbTintColor={colors.primary}
+                  minimumTrackTintColor={colors.primary}
+                  maximumTrackTintColor="#ccc"
+                  style={{ width: "100%", height: "100%" }}
+                />
+              </Animated.View>
+            )}
+          </View>
+        </View>
+      </Animated.View>
+    </Pressable>
   );
 };

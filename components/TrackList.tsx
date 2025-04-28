@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useState } from "react";
 import {
   FlatList,
   FlatListProps,
@@ -9,13 +9,15 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { defaultStyles, utilsStyles } from "@/constants/Style";
-import Entypo from "@expo/vector-icons/Entypo";
 import { colors, fontSize } from "@/constants/Colors";
 import { Image } from "expo-image";
 import { tw } from "@/libs";
-import { usePlayerStore, Track } from "@/store/usePlayerStore";
+import { usePlayerStore } from "@/store/usePlayerStore";
 import { unknownTrackImageUri } from "@/constants/images";
 import { useBottomSpace } from "@/hooks/useBottomSpace";
+import Dropdown from "./Dropdown";
+import { DropdownMenu, MenuOption } from "./CustomDropdown";
+import { Track } from "@/apis/fetchChillhopYTB";
 
 export type TrackListProps = Partial<FlatListProps<Track>> & {
   search: string;
@@ -122,7 +124,7 @@ const TrackListItem = ({
               </Text>
             )}
           </View>
-          <Entypo name="dots-three-horizontal" size={24} color="white" />
+          <Dropdown />
         </View>
       </View>
     </TouchableHighlight>

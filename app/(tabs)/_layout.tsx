@@ -8,8 +8,11 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import FontAwesome6 from "@expo/vector-icons/FontAwesome6";
 import { FloatingPlayer } from "@/components/FloatingPlayer";
+import { usePlayerStore } from "@/store/usePlayerStore";
 
 const TabNavigation = () => {
+  const { currentTrack } = usePlayerStore();
+
   return (
     <>
       <Tabs
@@ -85,7 +88,7 @@ const TabNavigation = () => {
           }}
         />
       </Tabs>
-      <FloatingPlayer />
+      {currentTrack && <FloatingPlayer />}
     </>
   );
 };
