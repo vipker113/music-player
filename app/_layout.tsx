@@ -5,6 +5,7 @@ import * as NavigationBar from "expo-navigation-bar";
 import { SplashScreen } from "expo-router";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { Audio, InterruptionModeAndroid, InterruptionModeIOS } from "expo-av";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -40,7 +41,9 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <RootLayoutNav />
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <RootLayoutNav />
+      </GestureHandlerRootView>
     </SafeAreaProvider>
   );
 }
@@ -49,6 +52,17 @@ function RootLayoutNav() {
   return (
     <Stack>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="player"
+        options={{
+          presentation: "modal",
+          animation: "slide_from_bottom",
+          gestureEnabled: true,
+          gestureDirection: "vertical",
+          headerShown: false,
+          animationDuration: 400,
+        }}
+      />
     </Stack>
   );
 }

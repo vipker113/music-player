@@ -18,6 +18,8 @@ import { useBottomSpace } from "@/hooks/useBottomSpace";
 import Dropdown from "./Dropdown";
 import { DropdownMenu, MenuOption } from "./CustomDropdown";
 import { Track } from "@/apis/fetchChillhopYTB";
+import { Ionicons } from "@expo/vector-icons";
+import LottieView from "lottie-react-native";
 
 export type TrackListProps = Partial<FlatListProps<Track>> & {
   search: string;
@@ -89,7 +91,7 @@ const TrackListItem = ({
     (state) => state.currentTrack?.url === track.url
   );
 
-  const isLoading = usePlayerStore((state) => state.isLoading);
+  const { isLoading, isPlaying } = usePlayerStore();
 
   return (
     <TouchableHighlight
@@ -99,13 +101,31 @@ const TrackListItem = ({
     >
       <View style={tw`flex-row items-center p-2`}>
         <View>
-          <Image
-            source={{ uri: track.artwork || unknownTrackImageUri }}
-            style={[
-              tw`rounded-lg w-12 h-12`,
-              { opacity: isActiveTrack ? 0.6 : 1 },
-            ]}
-          />
+          <View style={tw`relative rounded-lg w-12 h-12`}>
+            <Image
+              source={{ uri: track.artwork || unknownTrackImageUri }}
+              style={[
+                tw`rounded-lg w-12 h-12`,
+                { opacity: isActiveTrack ? 0.6 : 1 },
+              ]}
+            />
+            {isActiveTrack &&
+              (isPlaying ? (
+                <LottieView
+                  source={require("../assets/icon/music-playing.json")}
+                  autoPlay
+                  loop
+                  style={styles.trackPlayingIconIndicator}
+                />
+              ) : (
+                <Ionicons
+                  style={styles.trackPausedIndicator}
+                  name="play"
+                  size={20}
+                  color={colors.icon}
+                />
+              ))}
+          </View>
         </View>
         <View style={tw`flex-1 flex-row items-center justify-between ml-4`}>
           <View style={tw`flex-1 justify-center`}>
@@ -132,6 +152,20 @@ const TrackListItem = ({
 };
 
 const styles = StyleSheet.create({
+  trackPlayingIconIndicator: {
+    position: "absolute",
+    width: 36,
+    height: 36,
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -18 }, { translateY: -18 }],
+  },
+  trackPausedIndicator: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    transform: [{ translateX: -10 }, { translateY: -10 }],
+  },
   trackTitleText: {
     ...defaultStyles.text,
     fontSize: fontSize.sm,

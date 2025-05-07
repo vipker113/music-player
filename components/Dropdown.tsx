@@ -20,9 +20,11 @@ const Dropdown = () => {
     iconName?: typeof Ionicons.defaultProps;
     onPress: () => void;
   }) => (
-    <MenuItem onPress={onPress} style={tw`rounded-3xl py-2 w-48 px-4`}>
+    <MenuItem onPress={onPress} style={tw`rounded-3xl py-2 px-1`}>
       <View style={tw`flex-row w-full justify-between items-center`}>
-        <Text style={tw`text-base text-slate-800`}>{title}</Text>
+        <View style={tw`flex-1`}>
+          <Text style={tw`text-base text-slate-800`}>{title}</Text>
+        </View>
         <Ionicons name={iconName} size={20} style={tw`text-slate-500 ml-2`} />
       </View>
     </MenuItem>
@@ -43,20 +45,20 @@ const Dropdown = () => {
         style={tw`mt-10 rounded-3xl`}
       >
         <MenuItemWithIcon
-          title="Statement"
-          iconName="document-text-outline"
+          title="Add to Playlist"
+          iconName="add-outline"
           onPress={hideMenu}
         />
         <Seperator />
         <MenuItemWithIcon
-          title="Settings"
-          iconName="settings-outline"
+          title="Add to Favorites"
+          iconName="heart-outline"
           onPress={hideMenu}
         />
         <Seperator />
         <MenuItemWithIcon
-          title="Log Out"
-          iconName="log-out-outline"
+          title="Share"
+          iconName="share-outline"
           onPress={hideMenu}
         />
       </Menu>
